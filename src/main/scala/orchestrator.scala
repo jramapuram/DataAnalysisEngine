@@ -3,6 +3,8 @@ package DataAnalysisEngine
 import scopt._
 import scalaj.http._
 
+import java.nio.file.{Files, Paths}
+
 import org.json4s._
 import org.json4s.native.JsonMethods._
 
@@ -71,10 +73,11 @@ class Parser {
       note("\n")
 
       help("help") text("prints this usage text")
-      checkConfig { c =>
-        if (c.query != true && c.metric == "") failure("Please specify a metric")
-        //else if () //TODO
-        else success }
+      //TODO: Conf verification
+      // checkConfig { c =>
+      //   if (c.query != true && c.metric == "") failure("Please specify a metric")
+      //   //else if ()
+      //   else success }
     }
 
     return p.parse(args, Config())
@@ -119,9 +122,8 @@ object Orchestrator {
 
   def postJar(conf: Config) {
     try{
-      val jar_file = Source.fromFile(conf.post_jar_file)
-      val lines = try jar_file.mkString finally jar_file.close()
-      val postResult = Http("http://%s/jars/%s".format(conf.spark_endpoint, conf.post_jar_target)).postData(lines)
+      val byteArray = Files.readAllBytes(Paths.get(conf.post_jar_file))
+      val postResult = Http("http://%s/jars/%s".format(conf.spark_endpoint, conf.post_jar_target)).postData(byteArray)
       println("POST jar result: " + postResult.asString.code)
     }catch {
       case ex: Exception => println("Couldn't POST JAR: " + ex)
