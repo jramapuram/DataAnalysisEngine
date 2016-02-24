@@ -28,19 +28,19 @@ case class Config(endpoint: String = "localhost:8081"
                     , post_job_app: String = ""
                     , post_job_conf_file: String = ""
                     , raw_json: Boolean = false
-                    , revision: Int = -1
-                    , metric: String = "")
+                    , classpath: String = ""
+                    , revision: Int = -1)
 
 class Parser {
   def parse(args: Array[String]): Option[Config] = {
     val p = new scopt.OptionParser[Config]("DataAnalyticsEngine") {
       head("\nDataAnalyticsEngine", "0.0.1")
-      opt[String]("endpoint") required() action { (x, c) =>
-        c.copy(endpoint = x) } text("The schema-registry endpoint")
       note("\n")
 
       cmd("query") action { (_, c) =>
         c.copy(query = true) } text("lists all available metrics from endpoint") children(
+        opt[String]("endpoint") required() action { (x, c) =>
+          c.copy(endpoint = x) } text("The schema-registry endpoint"),
         opt[Unit]("raw-json") action { (_, c) =>
           c.copy(raw_json = true) } text("Simply print the raw json instead of filtering the fields"),
         opt[Int]("revision") action { (x, c) =>
@@ -50,10 +50,14 @@ class Parser {
 
       cmd("post-jar") action { (_, c) =>
         c.copy(post_jar = true) } text("post a JAR to the jobserver") children(
+        opt[String]("endpoint") required() action { (x, c) =>
+          c.copy(endpoint = x) } text("The schema-registry endpoint"),
         opt[String]("spark-endpoint") required() action { (x, c) =>
           c.copy(spark_endpoint = x) } text("The spark endpoint"),
         opt[String]("jar-file") required() action { (x, c) =>
           c.copy(post_jar_file = x) } text("The path to the file to post"),
+        opt[String]("classpath") action { (x, c) =>
+          c.copy(classpath = x) } text("The classpath for the entrypoint into the job [optional / needed for custom jobs]"),
         opt[String]("target-app") required() action { (x, c) =>
           c.copy(post_jar_target = x) } text("The destination app name")
       )
@@ -66,9 +70,7 @@ class Parser {
         opt[String]("app") required() action { (x, c) =>
           c.copy(post_job_app = x) } text("The application name"),
         opt[String]("conf-file") required() action { (x, c) =>
-          c.copy(post_job_conf_file = x) } text("The path to the config file to post"),
-        opt[String]("metric") action { (x, c) =>
-            c.copy(metric = x) } text("The metric to evaluate")
+          c.copy(post_job_conf_file = x) } text("The path to the config file to post")
       )
       note("\n")
 
@@ -131,24 +133,58 @@ object Orchestrator {
   }
 
   def classPathFromName(name: String) : String = name.toLowerCase().trim() match {
-    case "anomaly" => "avro.consumer.jobserver.AvroConsumerJobServer"
+    case "anomaly" => "rawfie.eu.analysis.anomalyjob.AnomalyJob"
     case _         => throw new IllegalArgumentException("Unknown model type")
+  }
+
+  def buildContext(conf: Config, rndId: String, retryCount: Int) {
+    val ctx = Http("http://%s/contexts/%s?num-cpu-cores=4&memory-per-node=1024m&context-factory=spark.jobserver.context.StreamingContextFactory"
+                     .format(conf.spark_endpoint, rndId)).timeout(connTimeoutMs=50000, readTimeoutMs=50000).postData("")
+    ctx.asString.code match {
+      case 200 => println("Successfully created context")
+      case _   =>
+        {
+          if(retryCount <= 0)
+            throw new Exception("Error creating context: " + ctx.asString.body)
+          else
+            buildContext(conf, rndId, retryCount - 1)
+        }
+    }
+  }
+
+  def postConfig(byteArray: Array[Byte], conf: Config, rndId: String, retryCount: Int) {
+    val cp = conf.classpath match {
+      case ""  => classPathFromName(conf.post_job_app)
+      case _   => conf.classpath
+    }
+
+    val postResult = Http("http://%s/jobs?appName=%s&classPath=%s&context=%s"
+                            .format(conf.spark_endpoint, conf.post_job_app, cp, rndId)).postData(byteArray)
+    //.header("content-type", "application/json")
+
+    postResult.asString.code match{
+      case 200 => println(rndId)
+      case 202 => println(rndId)
+      case _   =>
+        {
+          if(retryCount <= 0)
+            throw new Exception("Error posting job: " + postResult.asString.body)
+          else
+            postConfig(byteArray, conf, rndId, retryCount - 1)
+        }
+    }
   }
 
   def postJob(conf: Config) {
     try{
-      val conf_file = Source.fromFile(conf.post_job_conf_file)
-      val lines = try conf_file.mkString finally conf_file.close()
-      val cp = classPathFromName(conf.post_jar_target)
-      val rndId = uuid
-      val ctx = Http("http://%s/contexts/%s?context-factory=spark.jobserver.context.StreamingContextFactory"
-                       .format(conf.spark_endpoint, rndId)).postData("").asString.body
-      val postResult = Http("http://%s/jobs?%s&classPath=%s&context=%s"
-                              .format(conf.spark_endpoint, conf.post_job_app, cp, rndId)).postData(lines)
-        .header("content-type", "application/json")
-      println("POST job result: " + postResult.asString.code)
+      val byteArray = Files.readAllBytes(Paths.get(conf.post_job_conf_file))
+      val rndId = "ctx-" + uuid
+
+      buildContext(conf, rndId, 3)          // try 3 times to build a context
+      postConfig(byteArray, conf, rndId, 3) // try to post the actual job definitions 3 times
+
     }catch {
-      case ex: Exception => println("Couldn't POST JAR: " + ex)
+      case ex: Exception => println("Couldn't POST job: " + ex)
     }
   }
 
