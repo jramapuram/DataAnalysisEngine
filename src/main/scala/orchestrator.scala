@@ -50,8 +50,6 @@ class Parser {
 
       cmd("post-jar") action { (_, c) =>
         c.copy(post_jar = true) } text("post a JAR to the jobserver") children(
-        opt[String]("endpoint") required() action { (x, c) =>
-          c.copy(endpoint = x) } text("The schema-registry endpoint"),
         opt[String]("spark-endpoint") required() action { (x, c) =>
           c.copy(spark_endpoint = x) } text("The spark endpoint"),
         opt[String]("jar-file") required() action { (x, c) =>
