@@ -56,8 +56,6 @@ class Parser {
           c.copy(spark_endpoint = x) } text("The spark endpoint"),
         opt[String]("jar-file") required() action { (x, c) =>
           c.copy(post_jar_file = x) } text("The path to the file to post"),
-        opt[String]("classpath") action { (x, c) =>
-          c.copy(classpath = x) } text("The classpath for the entrypoint into the job [optional / needed for custom jobs]"),
         opt[String]("target-app") required() action { (x, c) =>
           c.copy(post_jar_target = x) } text("The destination app name")
       )
@@ -69,6 +67,8 @@ class Parser {
           c.copy(spark_endpoint = x) } text("The spark endpoint"),
         opt[String]("app") required() action { (x, c) =>
           c.copy(post_job_app = x) } text("The application name"),
+        opt[String]("classpath") action { (x, c) =>
+          c.copy(classpath = x) } text("The classpath for the entrypoint into the job [optional / needed for custom jobs]"),
         opt[String]("conf-file") required() action { (x, c) =>
           c.copy(post_job_conf_file = x) } text("The path to the config file to post")
       )
