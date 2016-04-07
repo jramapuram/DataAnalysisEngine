@@ -1,6 +1,6 @@
 # Data Analytics Engine
-A scala based tool to receive messages from the Analytics Tool, parse them and relay the jobs to the spark jobserver.
-Currently we offer a CLI. This tool decouples 'models' from 'model parameters'. A model is a JAR that needs to be built once. It accepts input in terms of a JSON blob which it then parses to start a job.  
+A scala based tool to ease the posting of jobs and job-parameters to the spark jobserver.  
+This tool decouples 'models' from 'model parameters'. A model is a JAR that needs to be built once. It accepts input in terms of a JSON blob which it then parses to start a job.  
   
 The DataAnalysisEngine automatically builds a new random Spark context for each job which it utilizes to run a SparkStreaming job with parameters K. You can run as many jobs using the same JAR as you would like.
 
