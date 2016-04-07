@@ -8,6 +8,47 @@ The DataAnalysisEngine automatically builds a new random Spark context for each 
   - POST job jar
   - POST job
   - Get job status **[TBD]**
+```bash
+DataAnalyticsEngine 0.0.1
+Usage: DataAnalyticsEngine [query|post-jar|post-job] [options]
+
+
+
+Command: query [options]
+lists all available metrics from endpoint
+  --endpoint <value>
+        The schema-registry endpoint
+  --raw-json
+        Simply print the raw json instead of filtering the fields
+  --revision <value>
+        The revision to filter
+
+
+Command: post-jar [options]
+post a JAR to the jobserver
+  --spark-endpoint <value>
+        The spark endpoint
+  --jar-file <value>
+        The path to the file to post
+  --target-app <value>
+        The destination app name
+
+
+Command: post-job [options]
+post a job to to the jobserver
+  --spark-endpoint <value>
+        The spark endpoint
+  --app <value>
+        The application name
+  --classpath <value>
+        The classpath for the entrypoint into the job [optional / needed for custom jobs]
+  --conf-file <value>
+        The path to the config file to post
+
+
+  --help
+        prints this usage text
+```
 
 ## post-jar example
 ```bash
